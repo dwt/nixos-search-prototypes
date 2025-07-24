@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NixOS File Package Demo</title>
+    <!-- Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-white text-gray-900 font-sans">
+    <!-- Header -->
+    <header class="border-b p-4 flex justify-between items-center bg-white shadow-sm">
+      <div class="text-xl font-semibold"><a href="#" class="text-blue-600">nixos.org</a></div>
+      <nav class="space-x-4 hidden md:block">
+        <a href="#" class="text-sm text-blue-600 hover:underline">Packages</a>
+        <a href="#" class="text-sm text-blue-600 hover:underline">NixOS options</a>
+        <a href="#" class="text-sm text-blue-600 hover:underline">Flakes</a>
+        <a href="#" class="text-sm text-blue-600 hover:underline">NixOS Wiki</a>
+      </nav>
+    </header>
+
+    <!-- Main Layout -->
+    <main class="p-6 max-w-5xl mx-auto">
+      <h1 class="text-3xl font-bold mb-6">How to use <em>file</em>?</h1>
+
+      <!-- Tabs -->
+      <div class="flex space-x-4 mb-4 border-b border-gray-300">
+        <button onclick="showTab('run')" id="tab-run" class="tab px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600">Run</button>
+        <button onclick="showTab('install')" id="tab-install" class="tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600">Install</button>
+        <button onclick="showTab('develop')" id="tab-develop" class="tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600">Develop</button>
+      </div>
+
+      <!-- Focus Area (Tab Content) -->
+      <div class="bg-gray-100 rounded-lg p-6 shadow-md">
+        <!-- ---------------- Run Tab ---------------- -->
+        <div id="content-run" class="tab-content">
+          <div class="space-y-4">
+            <!-- flake run (default) -->
+            <div class="border rounded">
+              <button onclick="toggleAccordion('flake')" class="w-full text-left px-4 py-3 bg-gray-200 hover:bg-gray-300 font-semibold">Run directly (flake based)</button>
+              <div id="content-flake" class="px-4 py-4 bg-gray-50">
+                <p class="mb-2 text-gray-700">With flakes enabled you can run <code>file</code> directly:</p>
+                <pre class="bg-gray-800 text-white rounded p-4 overflow-x-auto text-sm">$ nix run nixpkgs#file</pre>
+              </div>
+            </div>
+
+            <!-- flake shell -->
+            <div class="border rounded">
+              <button onclick="toggleAccordion('flake-shell')" class="w-full text-left px-4 py-3 bg-gray-200 hover:bg-gray-300 font-semibold">Try in Shell (flake based)</button>
+              <div id="content-flake-shell" class="px-4 py-4 hidden bg-gray-50">
+                <p class="mb-2 text-gray-700">Open a temporary shell:</p>
+                <pre class="bg-gray-800 text-white rounded p-4 overflow-x-auto text-sm">$ nix shell nixpkgs#file</pre>
+              </div>
+            </div>
+
+            <!-- Classic Setup -->
+            <div class="border rounded">
+              <button onclick="toggleAccordion('classic')" class="w-full text-left px-4 py-3 bg-gray-200 hover:bg-gray-300 font-semibold">Try in Shell (classic)</button>
+              <div id="content-classic" class="px-4 py-4 hidden bg-gray-50">
+                <p class="mb-2 text-gray-700">Classic nix‑shell session:</p>
+                <pre class="bg-gray-800 text-white rounded p-4 overflow-x-auto text-sm">$ nix-shell -p file</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------------- Install Tab ---------------- -->
+        <div id="content-install" class="tab-content hidden">
+          <div class="space-y-4">
+            <!-- nix profile (flake) -->
+            <div class="border rounded">
+              <button onclick="toggleAccordion('install-profile')" class="w-full text-left px-4 py-3 bg-gray-200 hover:bg-gray-300 font-semibold">Install via nix profile (flake)</button>
+              <div id="content-install-profile" class="px-4 py-4 bg-gray-50">
+                <p class="mb-2 text-gray-700">Preferred installation:</p>
+                <pre class="bg-gray-800 text-white rounded p-4 overflow-x-auto text-sm">$ nix profile install nixpkgs#file</pre>
+              </div>
+            </div>
+
+            <!-- nix-env (classic) -->
+            <div class="border rounded">
+              <button onclick="toggleAccordion('install-nixenv')" class="w-full text-left px-4 py-3 bg-gray-200 hover:bg-gray-300 font-semibold">Install via nix-env (classic)</button>
+              <div id="content-install-nixenv" class="px-4 py-4 hidden bg-gray-50">
+                <p class="mb-2 text-gray-700">Environment‑based installation:</p>
+                <pre class="bg-gray-800 text-white rounded p-4 overflow-x-auto text-sm">$ nix-env -iA nixpkgs.file</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------------- Develop Tab ---------------- -->
+        <div id="content-develop" class="tab-content hidden">
+          <div class="space-y-4">
+            <!-- Flake devShell -->
+            <div class="border rounded">
+              <button onclick="toggleAccordion('develop-flake')" class="w-full text-left px-4 py-3 bg-gray-200 hover:bg-gray-300 font-semibold">Flake‑based devShell (more complex, pins dependencies)</button>
+              <div id="content-develop-flake" class="px-4 py-4 bg-gray-50">
+<pre class="bg-gray-800 text-white rounded p-4 overflow-x-auto text-sm"># flake.nix
+{
+  description = "Development shell with file";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs";
+  outputs = { self, nixpkgs }: {
+    devShells.x86_64-linux.default = nixpkgs.lib.mkShell {
+      packages = [ nixpkgs.legacyPackages.x86_64-linux.file ];
+    };
+  };
+}</pre>
+              </div>
+            </div>
+
+            <!-- Classic shell.nix -->
+            <div class="border rounded">
+              <button onclick="toggleAccordion('develop-shell')" class="w-full text-left px-4 py-3 bg-gray-200 hover:bg-gray-300 font-semibold">Classic shell.nix (shortest, no pinning)</button>
+              <div id="content-develop-shell" class="px-4 py-4 hidden bg-gray-50">
+<pre class="bg-gray-800 text-white rounded p-4 overflow-x-auto text-sm"># shell.nix
+{ pkgs ? import <nixpkgs> {} }:
+
+pkgs.mkShell {
+  buildInputs = [ pkgs.file ];
+}</pre>
+              </div>
+            </div>
+
+            <!-- Inline nix-shell shebang -->
+            <div class="border rounded">
+              <button onclick="toggleAccordion('develop-shebang')" class="w-full text-left px-4 py-3 bg-gray-200 hover:bg-gray-300 font-semibold">Script with nix‑shell shebang (no extra files, no pinning)</button>
+              <div id="content-develop-shebang" class="px-4 py-4 hidden bg-gray-50">
+<pre class="bg-gray-800 text-white rounded p-4 overflow-x-auto text-sm">#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p file
+
+file some-binary</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // ---------------- Utility lists ----------------
+      const tabs = ['run', 'install', 'develop'];
+      const accordionIds = [
+        'flake', 'flake-shell', 'classic',
+        'install-nixenv', 'install-profile',
+        'develop-flake', 'develop-shell', 'develop-shebang'
+      ];
+      const defaultAcc = {
+        run: 'flake',
+        install: 'install-profile',
+        develop: 'develop-flake'
+      };
+
+      // ---------------- Accordion helpers ----------------
+      function hideAllAccordions() {
+        accordionIds.forEach(id => {
+          const el = document.getElementById('content-' + id);
+          if (el) el.classList.add('hidden');
+        });
+      }
+
+      function toggleAccordion(id) {
+        hideAllAccordions();
+        const content = document.getElementById('content-' + id);
+        if (content) content.classList.remove('hidden');
+      }
+
+      // ---------------- Tab switching ----------------
+      function showTab(tab) {
+        // hide/show tab bodies & adjust tab styling
+        tabs.forEach(t => {
+          document.getElementById('content-' + t).classList.toggle('hidden', t !== tab);
+          document.getElementById('tab-' + t).classList.toggle('text-blue-600', t === tab);
+          document.getElementById('tab-' + t).classList.toggle('border-blue-600', t === tab);
+          document.getElementById('tab-' + t).classList.toggle('border-b-2', t === tab);
+          document.getElementById('tab-' + t).classList.toggle('text-gray-600', t !== tab);
+        });
+        // expand first accordion in the selected tab
+        toggleAccordion(defaultAcc[tab]);
+      }
+
+      // ---------------- Initialisation ----------------
+      document.addEventListener('DOMContentLoaded', () => {
+        showTab('run');
+      });
+    </script>
+  </body>
+</html>
