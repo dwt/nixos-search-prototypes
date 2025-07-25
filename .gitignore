@@ -12,3 +12,8 @@ devenv.local.nix
 # Added by cargo
 
 /target
+
+# DB-Files
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
