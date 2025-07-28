@@ -1,6 +1,5 @@
 use std::{collections::HashMap, env, sync::Arc};
 
-use axum::response::{IntoResponse, Response};
 use axum::{
     Json, Router,
     extract::{Query, State},
@@ -23,6 +22,10 @@ async fn main() {
     if let Some(flag) = maybe_dump {
         if flag == "--dump-sqlite-fulltext-search" {
             dump_sqlite_for_fulltext_search_to_stdout(&path);
+            return;
+        }
+        if flag == "--dump-sqlite-normalized" {
+            dump_sqlite_normalized_to_stdout(&path);
             return;
         }
     }
@@ -65,6 +68,59 @@ fn dump_sqlite_for_fulltext_search_to_stdout(db_path: &str) {
                     package_name, nix_path
                 )
                 .unwrap();
+            }
+        }
+    }
+    writeln!(handle, "COMMIT;").unwrap();
+}
+
+fn dump_sqlite_normalized_to_stdout(db_path: &str) {
+    use std::collections::HashMap;
+    use std::io::{self, Write};
+    let reader = Reader::open(db_path).expect("Failed to open nix-index database");
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+
+    writeln!(handle, "PRAGMA journal_mode=WAL;").unwrap();
+    writeln!(handle, "PRAGMA synchronous=OFF;").unwrap();
+
+    writeln!(
+        handle,
+        "CREATE TABLE packages (id INTEGER PRIMARY KEY, store_path TEXT UNIQUE);"
+    )
+    .unwrap();
+    writeln!(handle, "CREATE TABLE files (id INTEGER PRIMARY KEY, package_id INTEGER REFERENCES packages(id), file_path TEXT);").unwrap();
+
+    writeln!(handle, "BEGIN;").unwrap();
+
+    let regex = Regex::new("").expect("Failed to compile regex");
+    let mut package_ids = HashMap::new();
+    let mut next_package_id = 1u64;
+    let mut next_file_id = 1u64;
+
+    if let Ok(iter) = reader.query(&regex).run() {
+        for entry in iter {
+            if let Ok((store, file)) = entry {
+                let store_str = store.as_str().replace('\'', "''");
+                let file_path = String::from_utf8_lossy(&file.path).replace('\'', "''");
+                let package_id = *package_ids.entry(store_str.clone()).or_insert_with(|| {
+                    let id = next_package_id;
+                    writeln!(
+                        handle,
+                        "INSERT INTO packages (id, store_path) VALUES ({}, '{}');",
+                        id, store_str
+                    )
+                    .unwrap();
+                    next_package_id += 1;
+                    id
+                });
+                writeln!(
+                    handle,
+                    "INSERT INTO files (id, package_id, file_path) VALUES ({}, {}, '{}');",
+                    next_file_id, package_id, file_path
+                )
+                .unwrap();
+                next_file_id += 1;
             }
         }
     }

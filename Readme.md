@@ -30,4 +30,6 @@ Executed in    6.62 millis    fish           external
 
 Idea is to have one table for the package, and one for the files, and each file links to the package. That still allows to search for substrings in the files table, though potentially with a full table scan?
 
-Not sure, lets see.
+Without any index, that table is signifficantly smaller, at about 1.2gb. The table scan on the files table for like queries takes about 1.5s, so signifficantly longer than the fulltext or nix-index search. Indexes don't really help here, as they do not support full like queries, only prefix queries.
+
+## Maybe best: just go from the database directly to a mapping of libraries provided by packages
