@@ -28,6 +28,10 @@ async fn main() {
             dump_sqlite_normalized_to_stdout(&path);
             return;
         }
+        if flag == "--dump-sqlite-pkgconfig-libs" {
+            dump_sqlite_pkgconfig_libs_to_stdout(&path);
+            return;
+        }
     }
 
     let db = Arc::new(path);
@@ -122,6 +126,79 @@ fn dump_sqlite_normalized_to_stdout(db_path: &str) {
                 .unwrap();
                 next_file_id += 1;
             }
+        }
+    }
+
+    writeln!(handle, "COMMIT;").unwrap();
+}
+
+fn dump_sqlite_pkgconfig_libs_to_stdout(db_path: &str) {
+    use std::collections::{HashMap, HashSet};
+    use std::io::{self, Write};
+    let reader = Reader::open(db_path).expect("Failed to open nix-index database");
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+
+    writeln!(handle, "PRAGMA journal_mode=WAL;").unwrap();
+    writeln!(handle, "PRAGMA synchronous=OFF;").unwrap();
+
+    writeln!(
+        handle,
+        "CREATE TABLE packages (id INTEGER PRIMARY KEY, store_path TEXT UNIQUE);"
+    )
+    .unwrap();
+    writeln!(
+        handle,
+        "CREATE TABLE exported_libs (id INTEGER PRIMARY KEY, package_id INTEGER REFERENCES packages(id), lib_name TEXT);"
+    )
+    .unwrap();
+
+    writeln!(handle, "BEGIN;").unwrap();
+
+    let regex = Regex::new(r"/lib/pkgconfig/(.*)\.pc").expect("Failed to compile regex");
+
+    let mut next_package_id = 1u64;
+    let mut next_lib_id = 1u64;
+    let mut package_libs: HashMap<String, HashSet<String>> = HashMap::new();
+
+    if let Ok(iter) = reader.query(&regex).run() {
+        for entry in iter {
+            if let Ok((store, file)) = entry {
+                let store_str = store.as_str().replace('\'', "''");
+                let file_path = String::from_utf8_lossy(&file.path);
+                if let Some(caps) = regex.captures(file_path.as_bytes()) {
+                    if let Some(lib_name) = caps.get(1) {
+                        let lib_name_str =
+                            String::from_utf8_lossy(lib_name.as_bytes()).replace('\'', "''");
+                        package_libs
+                            .entry(store_str.clone())
+                            .or_default()
+                            .insert(lib_name_str);
+                    }
+                }
+            }
+        }
+    }
+
+    // Only include packages that export at least one library
+    for (store_str, libs) in package_libs.iter() {
+        let package_id = next_package_id;
+        writeln!(
+            handle,
+            "INSERT INTO packages (id, store_path) VALUES ({}, '{}');",
+            package_id, store_str
+        )
+        .unwrap();
+        next_package_id += 1;
+
+        for lib_name in libs {
+            writeln!(
+                handle,
+                "INSERT INTO exported_libs (id, package_id, lib_name) VALUES ({}, {}, '{}');",
+                next_lib_id, package_id, lib_name
+            )
+            .unwrap();
+            next_lib_id += 1;
         }
     }
 

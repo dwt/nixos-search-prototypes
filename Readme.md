@@ -33,3 +33,27 @@ Idea is to have one table for the package, and one for the files, and each file 
 Without any index, that table is signifficantly smaller, at about 1.2gb. The table scan on the files table for like queries takes about 1.5s, so signifficantly longer than the fulltext or nix-index search. Indexes don't really help here, as they do not support full like queries, only prefix queries.
 
 ## Maybe best: just go from the database directly to a mapping of libraries provided by packages
+
+Now available as `--dump-sqlite-pkgconfig-libs`. Only 430k. Test with
+
+```fish
+❯ sqlite3 db-libs.sqlite --csv 'select store_path, lib_name from exported_libs join packages on packages.id=exported_libs.package_id limit 100'
+```
+
+This turns up quite a few 'libraries' which do not look like what I expected. Examples:
+
+```fish
+❯ sqlite3 db-libs.sqlite --csv 'select store_path, lib_name from exported_libs join packages on packages.id=exported_libs.package_id where lib_name not like "lib%" limit 10 offset 100'
+-- Loading resources from /Users/dwt/.sqliterc
+store_path,lib_name
+/nix/store/fsjq34k80c1wl9dyjnri4w24wpfg33c5-python3-3.12.7-env,pygobject-3.0
+/nix/store/lwjj5d52yb2g40nwn17cgy29l5g15p7d-notcurses-3.0.11-dev,notcurses-ffi
+/nix/store/lwjj5d52yb2g40nwn17cgy29l5g15p7d-notcurses-3.0.11-dev,notcurses-core
+/nix/store/lwjj5d52yb2g40nwn17cgy29l5g15p7d-notcurses-3.0.11-dev,notcurses++
+/nix/store/lwjj5d52yb2g40nwn17cgy29l5g15p7d-notcurses-3.0.11-dev,notcurses
+/nix/store/lkyy7z8ixa1cfgw8z9647815285mnpz8-geoclue-2.7.2-dev,geoclue-2.0
+/nix/store/p2g3mrxzlrx5xh4yjxidygbphj71m5j6-icu4c-60.2-dev,icu-io
+/nix/store/p2g3mrxzlrx5xh4yjxidygbphj71m5j6-icu4c-60.2-dev,icu-uc
+/nix/store/p2g3mrxzlrx5xh4yjxidygbphj71m5j6-icu4c-60.2-dev,icu-i18n
+/nix/store/91q4c01pvrhrjj0yjii5xvi2zdpprnzk-ogre-14.3.2,OGRE-Overlay
+```
