@@ -57,3 +57,4 @@ store_path,lib_name
 /nix/store/p2g3mrxzlrx5xh4yjxidygbphj71m5j6-icu4c-60.2-dev,icu-i18n
 /nix/store/91q4c01pvrhrjj0yjii5xvi2zdpprnzk-ogre-14.3.2,OGRE-Overlay
 ```
+Turns out the first one is a kind of duplicate, as that package does provide that library, but it is not the originator. Not sure it is possible to filter these out these reexporting packages reliably from this data alone.
