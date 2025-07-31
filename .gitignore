@@ -17,3 +17,4 @@ devenv.local.nix
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+var/*
