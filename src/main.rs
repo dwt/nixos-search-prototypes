@@ -7,26 +7,42 @@ use std::{
 use nix_index::database::Reader;
 use regex::bytes::Regex;
 
+type DumpFunction = fn(&mut dyn Write, Reader);
+
 fn main() {
     let mut args = env::args().skip(1);
     let path = args
         .next()
         .expect("Please provide the path to the nix-index database");
+
     let maybe_dump = args.next();
 
-    match maybe_dump.as_deref() {
-        Some("--dump-sqlite-fulltext-search") => {
-            export_nix_index_to_sqlite_with_transaction(&path, dump_sqlite_for_fulltext_search)
-        }
-        Some("--dump-sqlite-normalized") => {
-            export_nix_index_to_sqlite_with_transaction(&path, dump_sqlite_normalized)
-        }
-        Some("--dump-sqlite-pkgconfig-libs") => {
-            export_nix_index_to_sqlite_with_transaction(&path, dump_sqlite_pkgconfig_libs)
-        }
-        _ => println!(
-            "No valid dump flag provided. Available flags: --dump-sqlite-fulltext-search, --dump-sqlite-normalized, --dump-sqlite-pkgconfig-libs"
+    // Create a HashMap that maps command strings to functions
+    let command_map: HashMap<&str, DumpFunction> = [
+        (
+            "--dump-sqlite-fulltext-search",
+            dump_sqlite_for_fulltext_search as DumpFunction,
         ),
+        (
+            "--dump-sqlite-normalized",
+            dump_sqlite_normalized as DumpFunction,
+        ),
+        (
+            "--dump-sqlite-pkgconfig-libs",
+            dump_sqlite_pkgconfig_libs as DumpFunction,
+        ),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    // Check the command and call the corresponding function
+    if let Some(&dump_func) = command_map.get(maybe_dump.as_deref().unwrap_or("")) {
+        export_nix_index_to_sqlite_with_transaction(&path, dump_func);
+    } else {
+        println!(
+            "No valid dump flag provided. Available flags: --dump-sqlite-fulltext-search, --dump-sqlite-normalized, --dump-sqlite-pkgconfig-libs"
+        );
     }
 }
 
