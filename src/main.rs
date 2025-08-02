@@ -1,24 +1,19 @@
-use std::{collections::HashMap, env, sync::Arc};
-
-use axum::{
-    Json, Router,
-    extract::{Query, State},
-    http::StatusCode,
-    routing::get,
+use std::{
+    collections::{HashMap, HashSet},
+    env,
+    io::{self, Write},
 };
+
 use nix_index::database::Reader;
 use regex::bytes::Regex;
-use serde::Serialize;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let mut args = env::args().skip(1);
     let path = args
         .next()
         .expect("Please provide the path to the nix-index database");
     let maybe_dump = args.next();
 
-    // dbg!(&path, &maybe_dump);
     if let Some(flag) = maybe_dump {
         if flag == "--dump-sqlite-fulltext-search" {
             dump_sqlite_for_fulltext_search_to_stdout(&path);
@@ -34,15 +29,12 @@ async fn main() {
         }
     }
 
-    let db = Arc::new(path);
-    let app = Router::new().route("/query", get(query)).with_state(db);
-
-    let listener = tokio::net::TcpListener::bind("127.1:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    println!(
+        "No valid dump flag provided. Available flags: --dump-sqlite-fulltext-search, --dump-sqlite-normalized, --dump-sqlite-pkgconfig-libs"
+    );
 }
 
 fn dump_sqlite_for_fulltext_search_to_stdout(db_path: &str) {
-    use std::io::{self, Write};
     let reader = Reader::open(db_path).expect("Failed to open nix-index database");
     let stdout = io::stdout();
     let mut handle = stdout.lock();
@@ -79,8 +71,6 @@ fn dump_sqlite_for_fulltext_search_to_stdout(db_path: &str) {
 }
 
 fn dump_sqlite_normalized_to_stdout(db_path: &str) {
-    use std::collections::HashMap;
-    use std::io::{self, Write};
     let reader = Reader::open(db_path).expect("Failed to open nix-index database");
     let stdout = io::stdout();
     let mut handle = stdout.lock();
@@ -133,8 +123,6 @@ fn dump_sqlite_normalized_to_stdout(db_path: &str) {
 }
 
 fn dump_sqlite_pkgconfig_libs_to_stdout(db_path: &str) {
-    use std::collections::{HashMap, HashSet};
-    use std::io::{self, Write};
     let reader = Reader::open(db_path).expect("Failed to open nix-index database");
     let stdout = io::stdout();
     let mut handle = stdout.lock();
@@ -203,42 +191,4 @@ fn dump_sqlite_pkgconfig_libs_to_stdout(db_path: &str) {
     }
 
     writeln!(handle, "COMMIT;").unwrap();
-}
-
-async fn query(
-    State(db_path): State<Arc<String>>,
-    Query(params): Query<HashMap<String, String>>,
-) -> (StatusCode, Json<SearchResult>) {
-    let query = params["query"].clone();
-
-    let reader = Reader::open(db_path.as_str()).expect("Failed to open nix-index database");
-
-    let regex = Regex::new(&query).expect("Failed to compile regex");
-
-    // Assuming `query` is a method on `Reader` that takes a `Regex`
-    let result = reader
-        .query(&regex)
-        .run()
-        .unwrap()
-        .take(10)
-        .map(|r| {
-            let (store, file) = r.unwrap();
-            (
-                store.as_str().to_string(),
-                String::from_utf8_lossy(&file.path).to_string(),
-            )
-        })
-        .collect::<Vec<_>>();
-
-    let search_result = SearchResult {
-        query,
-        search_results: result,
-    };
-    (StatusCode::OK, Json(search_result))
-}
-
-#[derive(Serialize)]
-struct SearchResult {
-    query: String,
-    search_results: Vec<(String, String)>,
 }
