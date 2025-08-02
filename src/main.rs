@@ -7,8 +7,7 @@ use std::{
 use nix_index::database::Reader;
 use regex::bytes::Regex;
 
-// REFACT rename export_nix_index_to_sqlite_with_transaction
-fn with_transaction<F>(db_path: &str, export_logic: F)
+fn export_nix_index_to_sqlite_with_transaction<F>(db_path: &str, export_logic: F)
 where
     F: Fn(&mut dyn Write, Reader),
 {
@@ -54,7 +53,7 @@ fn main() {
 }
 
 fn dump_sqlite_for_fulltext_search_to_stdout(db_path: &str) {
-    with_transaction(db_path, |handle, reader| {
+    export_nix_index_to_sqlite_with_transaction(db_path, |handle, reader| {
         writeln!(
             handle,
             "CREATE VIRTUAL TABLE entries USING FTS5(store_path, file_path);"
@@ -80,7 +79,7 @@ fn dump_sqlite_for_fulltext_search_to_stdout(db_path: &str) {
 }
 
 fn dump_sqlite_normalized_to_stdout(db_path: &str) {
-    with_transaction(db_path, |handle, reader| {
+    export_nix_index_to_sqlite_with_transaction(db_path, |handle, reader| {
         writeln!(
             handle,
             "CREATE TABLE packages (id INTEGER PRIMARY KEY, store_path TEXT UNIQUE);"
@@ -123,7 +122,7 @@ fn dump_sqlite_normalized_to_stdout(db_path: &str) {
 }
 
 fn dump_sqlite_pkgconfig_libs_to_stdout(db_path: &str) {
-    with_transaction(db_path, |handle, reader| {
+    export_nix_index_to_sqlite_with_transaction(db_path, |handle, reader| {
         writeln!(
             handle,
             "CREATE TABLE packages (id INTEGER PRIMARY KEY, store_path TEXT UNIQUE);"
